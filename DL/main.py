@@ -99,10 +99,8 @@ def postprocess(frame, outs):
 
 
 X='A.jpg'
-cap = cv.VideoCapture(X)
-outputFile = X[:-4]+'_yolo_out_py.jpg'
-
-_,frame = cap.read()
+outputFile = X.split('.')[0]+'_yolo_out_py.jpg'
+frame = cv.imread(X,cv.IMREAD_COLOR)
 
 # Create a 4D blob from a frame.
 blob = cv.dnn.blobFromImage(
