@@ -12,53 +12,75 @@ import time
 USERNAME='guest'
 PASSWORD='guest'
 
+EXCHANGE_NAME='e.R'
+QUEUE_NAME='salam'
+
+FRAME_PROCESS_HOP=30
+
 def decoding_size(x):
     return x*8
 
+class Signals(QWidget):
+    one_frame = pyqtSignal(np.ndarray)
+    
 class Rbmq(QThread):
-    def __init__(self,Channel):
+    def __init__(self,Signal,Channel):
+        print("rbmq")
         super(Rbmq, self).__init__()
+        self.signal=Signal
         self.channel = Channel
         #=============================================================
         #set perefetch
         #self.channel.basic_qos(prefetch_count=10)
         #=============================================================
         
-        result=self.channel.queue_declare(queue='salam', durable=False, exclusive=True,auto_delete=True)
-        self.channel.queue_bind(exchange='e.R', queue='salam',routing_key='')
-        self.channel.basic_consume(queue='salam',
-                      on_message_callback=
+        result=self.channel.queue_declare(queue=QUEUE_NAME, durable=False, exclusive=True,auto_delete=True)
+        self.channel.queue_bind(exchange=EXCHANGE_NAME, queue=QUEUE_NAME,routing_key='')
+        self.channel.basic_consume(queue=QUEUE_NAME,on_message_callback=
                       lambda ch, method, properties, body:
                           self.dispatch(
-                              ch, method, properties, body,None
+                              ch, method, properties, body,self.signal
                               ),
-                          consumer_tag="ct_test",
                            auto_ack=True
                         )
+    def start(self):
+        print("started")
         self.channel.start_consuming()
-        print('Waiting for message')
+
         
     def dispatch(self, channel, method, properties, body,Signal):
         frames=np.frombuffer(body,dtype=np.dtype('uint8'))
         frames=frames.reshape(decoding_size(frames[0]), decoding_size(frames[1]), 3)
-        print(frames[0][0][2])
-        # channel.basic_ack(delivery_tag = method.delivery_tag)
+        if not(frames[0][0][2]%FRAME_PROCESS_HOP):
+            Signal.one_frame.emit(frames)
 
     def stop(self):
-        channel.stop_consuming("ct_test")
+        self.channel.stop_consuming()
+        self.channel.close()
 
-
-credentials = pika.PlainCredentials(USERNAME, PASSWORD)
-parameters  = pika.ConnectionParameters('localhost',
+class Process():
+    def __init__(self):
+        app = QtWidgets.QApplication(sys.argv)
+        self.connect_to_server()
+        sys.exit(app.exec_())
+        
+    def connect_to_server(self):
+        self.credentials = pika.PlainCredentials(USERNAME, PASSWORD)
+        self.parameters  = pika.ConnectionParameters('localhost',
                                5672,
                                 '/',
-                                credentials)
-connection=pika.BlockingConnection(parameters)
-channel=connection.channel()
+                                self.credentials)
+        self.channel=pika.BlockingConnection(self.parameters).channel()
+        self.Signal=Signals()
+        #init the rabbitmq
+        self.rbmq=Rbmq(self.Signal,self.channel)
+        self.Signal.one_frame.connect(self.process_the_frame)
+        self.rbmq.start()
+        
+    def process_the_frame(self,frame):
+        print(frame[0][0][2])
+    
 
 
-
-#init the rabbitmq
-rbmq=Rbmq(channel)
-
-
+if __name__ == "__main__":
+    Process()
