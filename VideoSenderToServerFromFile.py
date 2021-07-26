@@ -3,14 +3,19 @@ import pika
 import numpy as np
 import os
 import time
+import sys
 
-EXCHANGE_NAME='e.R'
+
+EXCHANGE_NAME=sys.argv[1]
+fpsLimit = float(sys.argv[2])
+
+# EXCHANGE_NAME='e.R'
+# fpsLimit = 0.03 # throttle limit
 
 def coding_size(x):
     return np.uint8((x[0]/8,x[1]/8))
 
 def Send_data_to_server(file_name):
-    fpsLimit = 0.03333 # throttle limit
     startTime = time.time()
     cap = cv2.VideoCapture(f'./video/{file_name}')
     #Connect to Server

@@ -7,7 +7,7 @@ import cv2
 import pika
 import numpy as np
 import time 
-
+from DL import main
 
 USERNAME='guest'
 PASSWORD='guest'
@@ -15,14 +15,15 @@ PASSWORD='guest'
 EXCHANGE_NAME='e.R'
 QUEUE_NAME='salam'
 
-FRAME_PROCESS_HOP=30
+FRAME_PROCESS_HOP=200
+#45-->10
 
 def decoding_size(x):
     return x*8
 
 class Signals(QWidget):
     one_frame = pyqtSignal(np.ndarray)
-    
+
 class Rbmq(QThread):
     def __init__(self,Signal,Channel):
         print("rbmq")
@@ -43,7 +44,7 @@ class Rbmq(QThread):
                               ),
                            auto_ack=True
                         )
-    def start(self):
+    def run(self):
         print("started")
         self.channel.start_consuming()
 
@@ -74,11 +75,14 @@ class Process():
         self.Signal=Signals()
         #init the rabbitmq
         self.rbmq=Rbmq(self.Signal,self.channel)
+        self.net=main.init_model()
         self.Signal.one_frame.connect(self.process_the_frame)
         self.rbmq.start()
         
     def process_the_frame(self,frame):
-        print(frame[0][0][2])
+        box , confidence = main.process(frame,self.net)
+        print(confidence)
+        
     
 
 

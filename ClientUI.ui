@@ -155,7 +155,7 @@
      <double>255.000000000000000</double>
     </property>
     <property name="value">
-     <double>20.000000000000000</double>
+     <double>220.000000000000000</double>
     </property>
    </widget>
    <widget class="QLabel" name="label_4">
@@ -207,7 +207,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Start Send Data</string>
+     <string>Stop Processor Unit</string>
     </property>
    </widget>
   </widget>

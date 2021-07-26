@@ -3,7 +3,8 @@ import argparse
 import sys
 import numpy as np
 import os.path
-from utils import init_model
+
+import time
 
 # Initialize the parameters
 confThreshold = 0.5  # Confidence threshold
@@ -12,7 +13,13 @@ nmsThreshold = 0.4  # Non-maximum suppression threshold
 inpWidth = 416  # 608     # Width of network's input image
 inpHeight = 416  # 608     # Height of network's input image
 
-net,classes = init_model()
+
+def init_model():
+    # Give the configuration and weight files for the model and load the network using them.
+    net = cv.dnn.readNetFromDarknet("./DL/model/darknet-yolov3.cfg", "./DL/model/model.weights")
+    net.setPreferableBackend(cv.dnn.DNN_BACKEND_OPENCV)
+    net.setPreferableTarget(cv.dnn.DNN_TARGET_CPU)
+    return net
 
 # Get the names of the output layers
 def getOutputsNames(net):
@@ -22,32 +29,6 @@ def getOutputsNames(net):
     return [layersNames[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
 # Draw the predicted bounding box
-
-
-def drawPred(classId, conf, left, top, right, bottom):
-    # Draw a bounding box.
-    #    cv.rectangle(frame, (left, top), (right, bottom), (255, 178, 50), 3)
-    cv.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 3)
-
-    label = '%.2f' % conf
-
-    # Get the label for the class name and its confidence
-    if classes:
-        assert(classId < len(classes))
-        label = '%s: %s' % (classes[classId], label)
-
-    # Display the label at the top of the bounding box
-    labelSize, baseLine = cv.getTextSize(
-        label, cv.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-    top = max(top, labelSize[1])
-    cv.rectangle(frame, (left, top - round(1.5*labelSize[1])), (left + round(
-        1.5*labelSize[0]), top + baseLine), (255, 0, 255), cv.FILLED)
-    #cv.rectangle(frame, (left, top - round(1.5*labelSize[1])), (left + round(1.5*labelSize[0]), top + baseLine),    (255, 255, 255), cv.FILLED)
-    cv.putText(frame, label, (left, top),
-               cv.FONT_HERSHEY_SIMPLEX, 0.70, (255, 255, 255), 2)
-
-# Remove the bounding boxes with low confidence using non-maxima suppression
-
 
 def postprocess(frame, outs):
     frameHeight = frame.shape[0]
@@ -62,16 +43,12 @@ def postprocess(frame, outs):
     confidences = []
     boxes = []
     for out in outs:
-        print("out.shape : ", out.shape)
         for detection in out:
             # if detection[4]>0.001:
             scores = detection[5:]
             classId = np.argmax(scores)
             # if scores[classId]>confThreshold:
             confidence = scores[classId]
-            if detection[4] > confThreshold:
-                print(detection[4], " - ", scores[classId]," - th : ", confThreshold)
-                print(detection)
             if confidence > confThreshold:
                 center_x = int(detection[0] * frameWidth)
                 center_y = int(detection[1] * frameHeight)
@@ -89,37 +66,35 @@ def postprocess(frame, outs):
     for i in indices:
         i = i[0]
         box = boxes[i]
-        left = box[0]
-        top = box[1]
-        width = box[2]
-        height = box[3]
-        drawPred(classIds[i], confidences[i], left,
-                 top, left + width, top + height)
+        confidence=confidences[i]
+    if boxes:
+        return (box , confidence)
+    else:
+        return (None,None)
 
-
-
-X='A.jpg'
-outputFile = X.split('.')[0]+'_yolo_out_py.jpg'
-frame = cv.imread(X,cv.IMREAD_COLOR)
-
-# Create a 4D blob from a frame.
-blob = cv.dnn.blobFromImage(
-    frame, 1/255, (inpWidth, inpHeight), [0, 0, 0], 1, crop=False)
-
-# Sets the input to the network
-net.setInput(blob)
-
-# Runs the forward pass to get output of the output layers
-outs = net.forward(getOutputsNames(net))
-
-
-# Remove the bounding boxes with low confidence
-postprocess(frame, outs)
-
-# Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
-t, _ = net.getPerfProfile()
-label = 'Inference time: %.2f ms' % (t * 1000.0 / cv.getTickFrequency())
-#cv.putText(frame, label, (0, 15), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255))
-
-cv.imwrite(outputFile, frame.astype(np.uint8))
+def process(frame,net):
+    # Create a 4D blob from a frame.
+    blob = cv.dnn.blobFromImage(
+        frame, 1/255, (inpWidth, inpHeight), [0, 0, 0], 1, crop=False)
+    # Sets the input to the network
+    net.setInput(blob)
+    outs = net.forward(getOutputsNames(net))
+    # Runs the forward pass to get output of the output layers
+    box , confidence = postprocess(frame, outs)
+    return (box , confidence)
     
+    
+def test(frame) :
+    a1=time.time()
+    process(frame)
+    a2=time.time()
+    return a2-a1
+
+net = init_model()
+
+
+# X='A.jpg'
+# outputFile = X.split('.')[0]+'_yolo_out_py.jpg'
+# frame = cv.imread(X,cv.IMREAD_COLOR)
+# XXX=[test(frame) for  i in range(1000)]
+# print(np.mean(XXX))
