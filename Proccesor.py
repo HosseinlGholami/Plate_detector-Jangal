@@ -1,57 +1,89 @@
-import concurrent.futures
-import logging
-import queue
-import threading
+from PyQt5.QtCore import QThread
 import time
 import pika
 import numpy as np
+from multiprocessing import Queue
+from PyQt5 import QtWidgets,QtGui
+import sys
+from DL import main
 
 EXCHANGE_NAME='e.R'
-FRAME_PROCESS_HOP=200
+FRAME_HOP=200
 
-def dispatch(channel, method, properties, body,frame_process_hop,queue):
-        frames=np.frombuffer(body,dtype=np.dtype('uint8'))
-        frames=frames.reshape(decoding_size(frames[0]), decoding_size(frames[1]), 3)
-        if not(frames[0][0][2]%200):
-            print('salam')
-            queue.put(frames)
-            
-def producer(queue,channel):
-    result=channel.queue_declare(queue=EXCHANGE_NAME+str(int(time.time())), durable=False, exclusive=True)
-    queue_name = result.method.queue
-    channel.queue_bind(exchange=EXCHANGE_NAME, queue=queue_name,routing_key='')
-    channel.basic_consume(queue=queue_name,on_message_callback=
-                  lambda ch, method, properties, body:
-                      dispatch(
-                          ch, method, properties, body,FRAME_PROCESS_HOP,queue
-                          ),
-                       auto_ack=True
-                    )
-    channel.start_consuming()
-    
-def consumer(queue,channel):
-    while(1):
-        if not queue.empty():
-            print('salam')
-            message = queue.get()
-            #send to processor
-            frame=message
-            #send procced data to server again
-            channel.basic_publish(
-                        exchange=EXCHANGE_NAME+'_pr',
-                        routing_key='',
-                        body=frame.tobytes(),
-                        properties=pika.BasicProperties(delivery_mode = 1)
+def decoding_size(x):
+    return x*8
+
+class Rbmq(QThread):
+    def __init__(self,Channel,Queue,EXCHANGE_NAME,frame_hop):
+        super(Rbmq, self).__init__()
+        self.channel = Channel        
+        result=self.channel.queue_declare(queue=EXCHANGE_NAME+str(int(time.time())), durable=False, exclusive=True)
+        queue_name = result.method.queue        
+        self.channel.queue_bind(exchange=EXCHANGE_NAME, queue=queue_name,routing_key='')
+        self.channel.basic_consume(queue=queue_name,on_message_callback=
+                      lambda ch, method, properties, body:
+                          self.dispatch(
+                              ch, method, properties, body,frame_hop,Queue
+                              ),
+                           auto_ack=True
                         )
+    def run(self):
+        print("started")
+        self.channel.start_consuming()
+
+    def stop(self):
+        self.channel.stop_consuming()
+        self.channel.close()
+
+    def dispatch(self, ch, method, properties, body,frame_hop,Queue):
+        frames=np.frombuffer(body,dtype=np.dtype('uint8'))
+        if not(frames[2]%frame_hop):
+            frames=frames.reshape(decoding_size(frames[0]), decoding_size(frames[1]), 3)
+            print('*')
+            Queue.put(frames)
+            
+
+class Consumer(QThread):
+    def __init__(self,Channel,queue,EXCHANGE_NAME):
+        super(Consumer, self).__init__()
+        self.channel = Channel       
+        self.Queue=queue
+        self.net=main.init_model()
         
-if __name__ == "__main__":
-    credentials = pika.PlainCredentials('guest', 'guest')
-    parameters = pika.ConnectionParameters('localhost',
+    def run(self):
+        while(1):
+            frame=self.Queue.get()
+            box , confidence = main.process(frame,self.net)
+            print('0')
+            
+            # channel.basic_publish(
+#                 exchange=exchange_name+'_pr',
+#                 routing_key='',
+#                 body=body,
+#                 properties=pika.BasicProperties(delivery_mode = 1)
+#                 )
+
+
+
+class RunDesignerGUI():
+    def __init__(self):
+        app = QtWidgets.QApplication(sys.argv)
+        self.prepare_conf()
+        sys.exit(app.exec_())
+
+    def prepare_conf(self):
+        credentials = pika.PlainCredentials('guest', 'guest')
+        parameters = pika.ConnectionParameters('localhost',
                                            5672,
                                             '/',
                                             credentials)
-    channel=pika.BlockingConnection(parameters).channel()
-    pipeline = queue.Queue(maxsize=10)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        executor.submit(producer, pipeline, channel)
-        executor.submit(consumer, pipeline, channel)
+        self.Channel=pika.BlockingConnection(parameters).channel()
+        self.Queue=Queue()
+        self.rbmq=Rbmq(self.Channel,self.Queue,EXCHANGE_NAME,FRAME_HOP)
+        self.counsumer=Consumer(self.Channel,self.Queue,EXCHANGE_NAME)
+        self.counsumer.start()
+        self.rbmq.start()
+
+
+if __name__ == "__main__":
+    RunDesignerGUI()   

@@ -1,5 +1,4 @@
 import sys
-from PyQt5 import QtWidgets
 from ClientUI import Ui_MainWindow
 import requests, json
 from PyQt5.QtCore import QProcess
