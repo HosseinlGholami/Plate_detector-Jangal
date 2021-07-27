@@ -6,11 +6,11 @@ import time
 import sys
 
 
-EXCHANGE_NAME=sys.argv[1]
-fpsLimit = float(sys.argv[2])
+# EXCHANGE_NAME=sys.argv[1]
+# fpsLimit = float(sys.argv[2])
 
-# EXCHANGE_NAME='e.R'
-# fpsLimit = 0.03 # throttle limit
+EXCHANGE_NAME='e.R'
+fpsLimit = 0.03 # throttle limit
 
 def coding_size(x):
     return np.uint8((x[0]/8,x[1]/8))

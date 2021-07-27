@@ -133,7 +133,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>processing rate</string>
+     <string>processing rate :</string>
     </property>
    </widget>
    <widget class="QDoubleSpinBox" name="doubleSpinBox">
@@ -208,6 +208,41 @@
     </property>
     <property name="text">
      <string>Stop Processor Unit</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_6">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>280</y>
+      <width>81</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Read FPS :</string>
+    </property>
+   </widget>
+   <widget class="QDoubleSpinBox" name="doubleSpinBox_2">
+    <property name="geometry">
+     <rect>
+      <x>770</x>
+      <y>280</y>
+      <width>91</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="decimals">
+     <number>0</number>
+    </property>
+    <property name="minimum">
+     <double>1.000000000000000</double>
+    </property>
+    <property name="maximum">
+     <double>30.000000000000000</double>
+    </property>
+    <property name="value">
+     <double>30.000000000000000</double>
     </property>
    </widget>
   </widget>
