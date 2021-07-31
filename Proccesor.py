@@ -17,7 +17,7 @@ class Rbmq(QThread):
     def __init__(self,Channel,Queue,EXCHANGE_NAME,frame_hop):
         super(Rbmq, self).__init__()
         self.channel = Channel        
-        result=self.channel.queue_declare(queue=EXCHANGE_NAME+str(int(time.time())), durable=False, exclusive=True)
+        result=self.channel.queue_declare(queue=EXCHANGE_NAME+"_pr-"+str(int(time.time())), durable=False, exclusive=True)
         queue_name = result.method.queue        
         self.channel.queue_bind(exchange=EXCHANGE_NAME, queue=queue_name,routing_key='')
         self.channel.basic_consume(queue=queue_name,on_message_callback=
@@ -48,20 +48,22 @@ class Consumer(QThread):
         super(Consumer, self).__init__()
         self.channel = Channel       
         self.Queue=queue
+        self.exchange_name=EXCHANGE_NAME
         self.net=main.init_model()
         
     def run(self):
         while(1):
             frame=self.Queue.get()
             box , confidence = main.process(frame,self.net)
-            print('0')
-            
-            # channel.basic_publish(
-#                 exchange=exchange_name+'_pr',
-#                 routing_key='',
-#                 body=body,
-#                 properties=pika.BasicProperties(delivery_mode = 1)
-#                 )
+            if confidence:
+                print(confidence)
+                if confidence>0.80:
+                    self.channel.basic_publish(
+                        exchange=self.exchange_name+'_pr',
+                        routing_key='',
+                        body=np.array(box).tobytes(),
+                        properties=pika.BasicProperties(delivery_mode = 1)
+                        )
 
 
 
@@ -77,10 +79,11 @@ class RunDesignerGUI():
                                            5672,
                                             '/',
                                             credentials)
-        self.Channel=pika.BlockingConnection(parameters).channel()
+        self.Channel_r=pika.BlockingConnection(parameters).channel()
+        self.Channel_s=pika.BlockingConnection(parameters).channel()
         self.Queue=Queue()
-        self.rbmq=Rbmq(self.Channel,self.Queue,EXCHANGE_NAME,FRAME_HOP)
-        self.counsumer=Consumer(self.Channel,self.Queue,EXCHANGE_NAME)
+        self.rbmq=Rbmq(self.Channel_r,self.Queue,EXCHANGE_NAME,FRAME_HOP)
+        self.counsumer=Consumer(self.Channel_s,self.Queue,EXCHANGE_NAME)
         self.counsumer.start()
         self.rbmq.start()
 
