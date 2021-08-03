@@ -7,8 +7,11 @@ from PyQt5 import QtWidgets,QtGui
 import sys
 from DL import main
 
-EXCHANGE_NAME='e.R'
-FRAME_HOP=200
+EXCHANGE_NAME=sys.argv[1]
+FRAME_HOP = int(sys.argv[2])
+
+# EXCHANGE_NAME='e.R'
+# FRAME_HOP=200
 
 def decoding_size(x):
     return x*8
@@ -56,12 +59,18 @@ class Consumer(QThread):
             frame=self.Queue.get()
             box , confidence = main.process(frame,self.net)
             if confidence:
-                print(confidence)
-                if confidence>0.80:
+                if confidence>0.85:
                     self.channel.basic_publish(
                         exchange=self.exchange_name+'_pr',
                         routing_key='',
                         body=np.array(box).tobytes(),
+                        properties=pika.BasicProperties(delivery_mode = 1)
+                        )
+            else:
+                self.channel.basic_publish(
+                        exchange=self.exchange_name+'_pr',
+                        routing_key='',
+                        body=np.array([0,0,0,0]).tobytes(),
                         properties=pika.BasicProperties(delivery_mode = 1)
                         )
 

@@ -85,16 +85,25 @@ def process(frame,net):
     
     
 def test(frame) :
-    a1=time.time()
     process(frame)
-    a2=time.time()
-    return a2-a1
 
-net = init_model()
+# net = init_model()
 
 
 # X='A.jpg'
 # outputFile = X.split('.')[0]+'_yolo_out_py.jpg'
 # frame = cv.imread(X,cv.IMREAD_COLOR)
-# XXX=[test(frame) for  i in range(1000)]
-# print(np.mean(XXX))
+# # XXX=[test(frame) for  i in range(1000)]
+# # print(np.mean(XXX))
+# box , confidence=process(frame,net)
+# left, top, width, height=box
+# def Perspective_Transformation(img,pts1,x,y):
+#     pts2 = np.float32([[0,0],[x,0],[0,y],[x,y]])
+#     M = cv.getPerspectiveTransform(pts1,pts2)
+#     return cv.warpPerspective(img,M,(x,y))
+# pts1 = np.float32([[left,top],[left+width,top],[left,top+height],[left+width,top+height]])
+# res6=Perspective_Transformation(frame, pts1=pts1, x=500,y=300)
+
+# cv.imshow("hey", res6)
+# cv.waitKey(0)
+# cv.destroyAllWindows()
