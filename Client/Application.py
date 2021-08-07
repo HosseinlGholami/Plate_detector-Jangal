@@ -1,5 +1,6 @@
 import sys
 from ClientUI import Ui_MainWindow
+from loginClientUI import Ui_MainWindow as login_Ui_MainWindow
 import requests, json
 from PyQt5.QtCore import QProcess
 import pika
@@ -10,12 +11,22 @@ from PyQt5 import QtWidgets,QtGui
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap
 import numpy as np
+import time
 
 EXCHANGE_NAME='e.R'
 fps_sender_limit=f'{1/5}'
 USERNAME='guest'
 PASSWORD='guest'
-DEFAULT_FRAME_PROCESS_HOP='100'
+DEFAULT_FRAME_PROCESS_HOP='20'
+
+def call_rabbitmq_api_validation(host, port, user, passwd):
+  url = 'http://%s:%s/api/whoami' % (host, port)
+  r = requests.get(url, auth=(user,passwd))
+  return dict(r.json())
+def get_active_exchange(host,port,user,passwd):    
+    GET_VHOST = f"http://{host}:{port}/api/definitions"
+    r = requests.get(url = GET_VHOST ,auth=(user, passwd),)
+    return [ex['name'] for ex in dict(r.json())['exchanges']]
 
 def Perspective_Transformation(img,pts1,x,y):
     pts2 = np.float32([[0,0],[x,0],[0,y],[x,y]])
@@ -27,26 +38,69 @@ class RunDesignerGUI():
         self.process=list()
         app = QtWidgets.QApplication(sys.argv)
         self.MainWindow = QtWidgets.QMainWindow()
-
+        self.LoginWindow = QtWidgets.QMainWindow()
+        #clientUI
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self.MainWindow)
+        #LoginUI
+        self.login_ui = login_Ui_MainWindow()
+        self.login_ui.setupUi(self.LoginWindow)
         
         self.widget_action()
-        self.start_sending_data_to_server()   
-        self.control_server_and_signals()
-        self.update_widgets()
+        
+        # self.start_sending_data_to_server()   
 
-        self.MainWindow.show()
+        self.update_widgets()
+        self.LoginWindow.show()
+        self.MainWindow.hide()
         sys.exit(app.exec_())
 
  
     def widget_action(self):
-        pass
+        self.login_ui.login_Button.clicked.connect(self.login_Button)
+        self.ui.disconButton.clicked.connect(self.disconnect_func)
     
+    def login_Button(self):
+        Serverip=self.login_ui.Serverip_lineEdit.text()
+        Serverport=self.login_ui.Serverport_lineEdit.text()
+        username=self.login_ui.Username_lineEdit.text()
+        password=self.login_ui.Password_lineEdit.text()
+    
+        try:
+            rabbit_authorization=call_rabbitmq_api_validation(Serverip,Serverport,username,password)
+        except:
+            self.send_log("rabbit is offline")
+            rabbit_authorization={'error':'offline'}        
+        if 'name' in rabbit_authorization:
+            self.send_log("connection to server is ok")
+            exchange_list=get_active_exchange(Serverip,Serverport,username,password)
+            if EXCHANGE_NAME in exchange_list:
+                self.send_log("client can connect to server")
+                self.MainWindow.show()
+                self.LoginWindow.hide()
+                self.control_server_and_signals()
+            else:
+                self.send_log("client cant connect to server since server application does no runs")
+            
+        else:
+            self.send_log(f"rabbit_authorization failed: error --> {rabbit_authorization['error']}")
+        del rabbit_authorization
+
+            
+    def disconnect_func(self):
+        self.MainWindow.hide()
+        self.LoginWindow.show()
+        
+        
     def control_server_and_signals(self):
-        self.credentials = pika.PlainCredentials(USERNAME, PASSWORD)
-        self.parameters  = pika.ConnectionParameters('localhost',
-                                       5672,
+        Serverip=self.login_ui.Serverip_lineEdit.text()
+        Serverport=self.login_ui.Serverport_lineEdit.text()
+        username=self.login_ui.Username_lineEdit.text()
+        password=self.login_ui.Password_lineEdit.text()
+        
+        self.credentials = pika.PlainCredentials(username, password)
+        self.parameters  = pika.ConnectionParameters(Serverip,
+                                       Serverport[1:],
                                         '/',
                                         self.credentials)
         
@@ -69,13 +123,13 @@ class RunDesignerGUI():
         Signal.one_data.emit(position)
         
         
-    def start_sending_data_to_server(self):
-        self.Send_process=QProcess()
-        self.Send_process.finished.connect(self.finish_process_sender)
-        self.Send_process.start("python",["VideoSenderToServerFromFile.py",EXCHANGE_NAME,fps_sender_limit])
-        self.process_process=QProcess()
-        self.process_process.finished.connect(self.finish_process_processor)
-        self.process_process.start("python",["proccesor.py",EXCHANGE_NAME,DEFAULT_FRAME_PROCESS_HOP])
+    # def start_sending_data_to_server(self):
+    #     self.Send_process=QProcess()
+    #     self.Send_process.finished.connect(self.finish_process_sender)
+    #     self.Send_process.start("python",["VideoSenderToServerFromFile.py",EXCHANGE_NAME,fps_sender_limit])
+    #     self.process_process=QProcess()
+    #     self.process_process.finished.connect(self.finish_process_processor)
+    #     self.process_process.start("python",["proccesor.py",EXCHANGE_NAME,DEFAULT_FRAME_PROCESS_HOP])
     
     def finish_process_sender(self,  exitCode,  exitStatus):
         print('Sender Application has die')
@@ -112,6 +166,11 @@ class RunDesignerGUI():
         convert_to_Qt_format = QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
         p = convert_to_Qt_format.scaled(label_obj.width(), label_obj.height(), Qt.KeepAspectRatio)
         return QPixmap.fromImage(p)
-
+    def send_log(self,txt):
+        pre_txt=self.login_ui.LogtextBrowser.toPlainText()
+        if (pre_txt==''):
+            self.login_ui.LogtextBrowser.setText(txt)
+        else:
+            self.login_ui.LogtextBrowser.setText(pre_txt+'\n'+txt)
 if __name__ == "__main__":
     RunDesignerGUI()    

@@ -15,7 +15,7 @@ fpsLimit = float(sys.argv[2])
 def coding_size(x):
     return np.uint8((x[0]/8,x[1]/8))
 
-def Send_data_to_server(file_name):
+def Send_data_to_server(file_name,exchange_name,fpsLimit):
     startTime = time.time()
     cap = cv2.VideoCapture(f'./video/{file_name}')
     #Connect to Server
@@ -64,8 +64,6 @@ def Send_data_to_server(file_name):
     channel.close()
     #close the channel of rabbitmq      
     cap.release()
-    cv2.destroyAllWindows()
-
 
 while True:
     for item in os.listdir('./Video'):

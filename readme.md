@@ -8,19 +8,19 @@
   - [x] close the channel
   
 - [x] Server 
-  - [ ] define exchage and senarios
+  - [x] define exchage and senarios
 
-- [ ] design UI for reciever
+- [x] design UI for reciever
 
-- [ ] Receiver for preview
+- [x] Receiver for preview
 
-- [ ] Receiver for get location
+- [x] Receiver for get location
 
   
 
-- [ ] Processor layer (receive all packet)
+- [x] Processor layer (receive all packet)
 
-  - [ ] send location of plate
-  - [ ] process message by sequence number and throw away the others
-    - [ ] send the process queue information to client 
+  - [x] send location of plate
+  - [x] process message by sequence number and throw away the others
+    - [x] send the process queue information to client 
     - [ ] be the controlling scenario much more smarter! (USE CONTORL SCIENCE!)

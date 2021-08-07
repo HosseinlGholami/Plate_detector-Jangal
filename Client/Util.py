@@ -37,8 +37,6 @@ class Rbmq(QThread):
         print("started")
         self.channel.start_consuming()
 
-                        
-
     def stop(self):
         self.channel.stop_consuming()
         self.channel.close()
